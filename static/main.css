@@ -1,0 +1,16 @@
+body {
+  background-color: black;
+  color: white;
+  font-family: "Hack", monospace;
+}
+#game {
+    width: 800px;
+    height: 600px;
+    border: 10px solid white;
+    margin-left: auto;
+    margin-right: auto;
+}
+@font-face {
+  font-family: "Hack";
+  src: url("fonts/Hack-Regular.ttf") format("truetype");
+}
