@@ -6,7 +6,7 @@ function Player(sprite, direction) {
     this.maxVelocity = {x: 30, y: 25};
     this.maxStunFrames = 0;
     this.maxStunFramesHeadOn = 60;
-    this.maxStunFramesAfterParrying = 20;
+    this.maxStunFramesAfterWallHit = 60;
     
     sprite.anchor.set(0, 0.5);
 
@@ -28,20 +28,34 @@ function Player(sprite, direction) {
     this._velocity = {x: 0, y: 0};
     this._homeX = sprite.x;
     this._targetSpritePosition = {x: this._homeX, y: 0};
-    this.setGuardPosition(1);
+    this.setGuardPosition(1, true, true);
     this._isThrusting = false;
     this._isRetracting = false;
     this._x = sprite.x;
     this._y = sprite.y;
     this._stunTimer = 0;
+    this._willHitWall = false;
 }
 
-Player.prototype.setGuardPosition = function(y, moveInstantly){
-    if (y < 0 || y > 2 || ((this._velocity.y != 0 || this.isThrusting() || this.isRetracting()) && !moveInstantly) ){
+Player.prototype.setGuardPosition = function(y, force, moveInstantly){
+    if ( ((y < 0 || y > 2 || this._velocity.y != 0 || this.isThrusting() || this.isRetracting()) && !force) ){
         return;
     }
     this._guardPosition = y;
-    this._targetSpritePosition.y = this.sprite.game.world.centerY + ((y - 1) * 200);
+    
+    if (y < 0){
+        this._targetSpritePosition.y = 0 + (this.sprite.height / 2);
+    }
+    else if (y > 2){
+        this._targetSpritePosition.y = this.sprite.game.height - (this.sprite.height / 2);
+    }
+    else {
+        this._targetSpritePosition.y = this.sprite.game.world.centerY + ((y - 1) * 200);
+    }
+
+    if (y < 0 || y > 2){
+        this._willHitWall = true;
+    }
     if (moveInstantly){
         this._y = this._targetSpritePosition.y;
     }
@@ -91,20 +105,20 @@ Player.prototype.getVelocityY = function(){
     return this._velocity.y;
 }
 
-Player.prototype.moveUp = function(moveInstantly){
+Player.prototype.moveUp = function(force){
     if (this._isDead){
         return;
     }
     
-    this.setGuardPosition(this._guardPosition - 1, moveInstantly);
+    this.setGuardPosition(this._guardPosition - 1, force);
 }
 
-Player.prototype.moveDown = function(moveInstantly){
+Player.prototype.moveDown = function(force){
     if (this._isDead){
         return;
     }
 
-    this.setGuardPosition(this._guardPosition + 1, moveInstantly);
+    this.setGuardPosition(this._guardPosition + 1, force);
 }
 
 Player.prototype.thrust = function(){
@@ -138,7 +152,7 @@ Player.prototype.retract = function(retractImmediately){
 
 Player.prototype.stun = function(headOn){
     // +1 to account for the timer being decremented at the end of the update loop
-    this._stunTimer = (headOn) ? this.maxStunFramesHeadOn + 1 : this.maxStunFrames + 1;
+    this._stunTimer = (headOn) ? this.maxStunFramesHeadOn + 1 : this.maxStunFramesAfterWallHit + 1;
     if (this.isThrusting){
         this.retract();
     }
@@ -151,19 +165,16 @@ Player.prototype.kill = function(){
 }
 
 Player.prototype.forceUp = function(){
-    this.retract(false);
-    this.stun();
+    this.retract(true);
     this.moveUp(true);
 }
 
 Player.prototype.forceDown = function(){
-    this.stun();
     this.retract(true);
     this.moveDown(true);
 }
 
 Player.prototype.parryUp = function(){
-    console.log(this._guardPosition);
     if (this._guardPosition == 0){
         this.setGuardPosition(1, true);
     }
@@ -209,7 +220,15 @@ Player.prototype.update = function(){
             //todo: replace next line with proper acceleration
             this._velocity.y = this.maxVelocity.y * yDir;
             this._y += this._velocity.y;
-            console.log(this._y);
+        }
+
+        if (this.getTopEdge() <= 0){
+            this.setGuardPosition(0);
+            this.stun();
+        }
+        else if (this.getBottomEdge() >= this.sprite.game.height){
+            this.setGuardPosition(2);
+            this.stun();
         }
     }
     
@@ -368,10 +387,6 @@ window.onload = function() {
             return;
         }
         player2.thrust();
-    }
-    
-    function moveUp() {
-        
     }
 
     function update() {
