@@ -7,7 +7,7 @@ function Player(sprite, direction) {
     this.maxStunFrames = 0;
     this.maxStunFramesHeadOn = 60;
     this.maxStunFramesAfterWallHit = 60;
-    
+
     sprite.anchor.set(0, 0.5);
 
     if (direction == 1){
@@ -18,10 +18,10 @@ function Player(sprite, direction) {
         sprite.anchor.set(0, 0.5);
         this._goalX = 0;
     }
-    
+
     sprite.animations.add("idle", [0]);
     sprite.animations.add("stunned", [0,0,0,1], 15, true);
-    
+
     // _y: from 0 (high) to 2 (low)
     this._homeX = this.sprite.x;
     this.initialize();
@@ -29,10 +29,10 @@ function Player(sprite, direction) {
 
 Player.prototype.initialize = function(){
     this.sprite.animations.play("idle");
-    
+
     //redundant when called by constructor, but might be required after round
     this.sprite.x = this._homeX;
-    
+
     this._isDead = false;
     this._velocity = {x: 0, y: 0};
     this._targetSpritePosition = {x: this._homeX, y: 0};
@@ -50,7 +50,7 @@ Player.prototype.setGuardPosition = function(y, force, moveInstantly){
         return;
     }
     this._guardPosition = y;
-    
+
     if (y < 0){
         this._targetSpritePosition.y = 0 + (this.sprite.height / 2);
     }
@@ -67,6 +67,7 @@ Player.prototype.setGuardPosition = function(y, force, moveInstantly){
     if (moveInstantly){
         this._y = this._targetSpritePosition.y;
     }
+
 }
 
 Player.prototype.getGuardPosition = function(){
@@ -117,7 +118,7 @@ Player.prototype.moveUp = function(force){
     if (this._isDead){
         return;
     }
-    
+
     this.setGuardPosition(this._guardPosition - 1, force);
 }
 
@@ -137,7 +138,7 @@ Player.prototype.thrust = function(){
     if (this._velocity.y != 0 || this.isThrusting() || this.isRetracting()){
         return;
     }
-    
+
     this._targetSpritePosition = {
         x: this._goalX,
         y: this._y
@@ -148,7 +149,7 @@ Player.prototype.thrust = function(){
 Player.prototype.retract = function(retractImmediately){
     this._targetSpritePosition.x = this._homeX;
     this._isThrusting = false;
-    
+
     if (retractImmediately){
         this._x = this._targetSpritePosition.x;
         this._y = this._targetSpritePosition.y;
@@ -239,7 +240,7 @@ Player.prototype.update = function(){
             this.stun();
         }
     }
-    
+
     if (this._stunTimer > 0){
         this._stunTimer--;
         if (this._stunTimer == 0){
@@ -257,7 +258,7 @@ Player.prototype.isOverlappingX = function(other){
     if (this.direction != other.direction * -1){
         return;
     }
-    
+
     return (this.direction > 0) ? this._x >= other.getX() :
            (this.direction < 0) ? this._x <= other.getX() :
            false;
@@ -273,7 +274,7 @@ Player.prototype.getBottomEdge = function(){
 }
 
 window.onload = function() {
-    
+
     var game = new Phaser.Game(800, 600, Phaser.AUTO, 'game', { create: create, update: update });
     var scaleManager = new Phaser.ScaleManager(game, game.width, game.height);
     var graphics = new Phaser.Graphics(game, 0, 0);
@@ -281,16 +282,20 @@ window.onload = function() {
     var player1;
     var player2;
     var countdownLabel;
+    var generalLabel;
+    var titleLabel;
     var victoryMarkersP1 = [];
     var victoryMarkersP2 = [];
 
     var controls;
     var timeToStart = 3;
     var timer;
-    var begun = false;
-    var numRoundsMax = 9;
+    var begunRound = false;
+    var begunGame = false;
+    var numRoundsMax = 3;
     var numVictoriesP1 = 0;
     var numVictoriesP2 = 0;
+    var numGamesPlayed = 0;
 
     function preload () {
 
@@ -320,7 +325,7 @@ window.onload = function() {
 
         this.cache.addSpriteSheet("player", null, graphics.generateTexture().baseTexture.source, weaponLength, weaponThickness, 2);
         graphics.clear();
-        
+
         // create the victory marker spritesheets
 
         var markerSize = 20;
@@ -328,7 +333,7 @@ window.onload = function() {
         graphics.beginFill(0xffffff, 1);
         graphics.drawRect(0, 0, markerSize, markerSize);
         graphics.endFill();
-        
+
         graphics.lineStyle(markerLineWidth, 0xffffff, 1);
         graphics.beginFill(0xffffff, 0);
         graphics.drawRect(markerSize, 0, markerSize, markerSize);
@@ -336,86 +341,130 @@ window.onload = function() {
         this.cache.addSpriteSheet("victoryMarker", null, graphics.generateTexture().baseTexture.source, markerSize, markerSize, 2);
         graphics.clear();
 
-        // add the sprites
-
-        player1 = new Player(game.add.sprite(350, game.world.centerY, "player"), 1);
-        player2 = new Player(game.add.sprite(450, game.world.centerY, "player"), -1);
-        
-        var victoryMarkerSpacing = 20;
-        var victoryMarkerX = 40;
-        var victoryMarkerY = 560;
-        for (var i = 0; i < (numRoundsMax + 1) / 2; i++){
-            var vm = [victoryMarkersP1, victoryMarkersP2];
-            for (var j = 0; j < 2; j++){
-                var x = (j == 0) ? victoryMarkerX + ((victoryMarkerSpacing + markerSize) * i) :
-                        game.width - victoryMarkerX - ((victoryMarkerSpacing + markerSize) * i);
-                vm[j][i] = game.add.sprite(x, victoryMarkerY, "victoryMarker");
-                vm[j][i].anchor.set(0.5);
-                vm[j][i].animations.add("empty", [1]);
-                vm[j][i].animations.add("won", [0]);
-                vm[j][i].animations.play("empty");
-            }
-        }
-        
-        controls = game.input.keyboard.addKeys( {
-            "upP1": Phaser.KeyCode.W, 
-            "downP1": Phaser.KeyCode.S,
-            "thrustP1": Phaser.KeyCode.D,
-            'upP2': Phaser.KeyCode.UP, 
-            "downP2": Phaser.KeyCode.DOWN,
-            "thrustP2": Phaser.KeyCode.LEFT
-        });
-        
-        controls.upP1.onDown.add(pressedUpP1);
-        controls.downP1.onDown.add(pressedDownP1);
-        controls.thrustP1.onDown.add(pressedThrustP1);
-        controls.upP2.onDown.add(pressedUpP2);
-        controls.downP2.onDown.add(pressedDownP2);
-        controls.thrustP2.onDown.add(pressedThrustP2);
+        // add the text labels
 
         countdownLabel = game.add.text(game.world.centerX, 100, "", { font: "64px Hack", fill: "#ffffff", align: "center" });
         countdownLabel.anchor.set(0.5);
-        
+
+        timer = game.time.events;
+        timer.add(500, function(){
+            generalLabel = game.add.text(game.world.centerX, 300, "", { font: "32px Hack", fill: "#ffffff", align: "center" });
+            generalLabel.anchor.set(0.5);
+            generalLabel.text = "PRESS ANY KEY TO BEGIN";
+        }, this);
+
+        game.input.keyboard.addCallbacks(this, function() {
+            if (!begunGame){
+                beginGame();
+                console.log("missy is cute");
+            }
+        });
+
+        //beginGame();
+    }
+
+    function beginGame(){
+
+        if (numGamesPlayed == 0){
+
+            // add the sprites
+
+            var victoryMarkerSpacing = 20;
+            var victoryMarkerX = 40;
+            var victoryMarkerY = 560;
+            for (var i = 0; i < (numRoundsMax + 1) / 2; i++){
+                var vm = [victoryMarkersP1, victoryMarkersP2];
+                for (var j = 0; j < 2; j++){
+                    var x = (j == 0) ? victoryMarkerX + ((victoryMarkerSpacing + 25) * i) :
+                            game.width - victoryMarkerX - ((victoryMarkerSpacing + 25) * i);
+                    vm[j][i] = game.add.sprite(x, victoryMarkerY, "victoryMarker");
+                    vm[j][i].anchor.set(0.5);
+                    vm[j][i].animations.add("empty", [1]);
+                    vm[j][i].animations.add("won", [0]);
+                    vm[j][i].animations.play("empty");
+                }
+            }
+
+            player1 = new Player(game.add.sprite(350, game.world.centerY, "player"), 1);
+            player2 = new Player(game.add.sprite(450, game.world.centerY, "player"), -1);
+
+            // set controls
+
+            controls = game.input.keyboard.addKeys( {
+                "upP1": Phaser.KeyCode.W,
+                "downP1": Phaser.KeyCode.S,
+                "thrustP1": Phaser.KeyCode.D,
+                'upP2': Phaser.KeyCode.UP,
+                "downP2": Phaser.KeyCode.DOWN,
+                "thrustP2": Phaser.KeyCode.LEFT
+            });
+
+            controls.upP1.onDown.add(pressedUpP1);
+            controls.downP1.onDown.add(pressedDownP1);
+            controls.thrustP1.onDown.add(pressedThrustP1);
+            controls.upP2.onDown.add(pressedUpP2);
+            controls.downP2.onDown.add(pressedDownP2);
+            controls.thrustP2.onDown.add(pressedThrustP2);
+        }
+
+        else {
+            console.log("missy is still cute")
+            for (var i = 0; i < (numRoundsMax + 1) / 2; i++){
+                var vm = [victoryMarkersP1, victoryMarkersP2];
+                for (var j = 0; j < 2; j++){
+                    vm[j][i].animations.play("empty");
+                }
+            }
+            player1.initialize();
+            player2.initialize();
+        }
+
+        // reset text labels
+        generalLabel.text = "";
+
+        numVictoriesP1 = 0;
+        numVictoriesP2 = 0;
+
+        begunGame = true;
         beginRound(true);
     }
-    
+
     function updatePreGameTimer(){
         if (timeToStart > 0){
             countdownLabel.text = timeToStart.toString();
         }
         else {
-            begun = true;
+            begunRound = true;
             countdownLabel.text = "FIGHT";
         }
         timeToStart--;
     }
-    
+
     function clearPreGameTimer(){
         countdownLabel.text = "";
     }
-    
+
     function beginRound(isFirstRound){
-        console.log("meow")
         if (!isFirstRound){
             player1.initialize();
             player2.initialize();
         }
-        
+        begunRound = false;
+
         if (numVictoriesP1 > numRoundsMax / 2){
             if (numVictoriesP2 > numRoundsMax / 2){
-                console.log("draw!");
+                endGame(-1);
             }
             else {
-                console.log("left side wins!");
+                endGame(0);
             }
             return;
         }
         else if (numVictoriesP2 > numRoundsMax / 2){
-            console.log("right side wins!");
+            endGame(1);
             return;
         }
 
-        begun = false;
         timer = game.time.events;
         timeToStart = 3;
         for (var i = 0; i <= timeToStart; i++){
@@ -424,50 +473,50 @@ window.onload = function() {
         timer.add((timeToStart * 1000) + 500, clearPreGameTimer, this);
         timer.start();
     }
-    
+
     function pressedUpP1(key){
-        if (!begun){
+        if (!begunRound){
             return;
         }
         player1.moveUp();
     }
 
     function pressedDownP1(key){
-        if (!begun){
+        if (!begunRound){
             return;
         }
         player1.moveDown();
     }
 
     function pressedThrustP1(key){
-        if (!begun){
+        if (!begunRound){
             return;
         }
         player1.thrust();
     }
     function pressedUpP2(key){
-        if (!begun){
+        if (!begunRound){
             return;
         }
         player2.moveUp();
     }
 
     function pressedDownP2(key){
-        if (!begun){
+        if (!begunRound){
             return;
         }
         player2.moveDown();
     }
 
     function pressedThrustP2(key){
-        if (!begun){
+        if (!begunRound){
             return;
         }
         player2.thrust();
     }
 
     function update() {
-        if (!doneLoadingFonts){
+        if (!doneLoadingFonts || !begunGame){
             return;
         }
 
@@ -475,7 +524,21 @@ window.onload = function() {
         player2.update();
         postUpdate(player1, player2);
     }
-    
+
+    function endGame(winner) {
+        if (winner == 0){
+            countdownLabel.text = "LEFT SIDE WINS";
+        }
+        else if (winner == 1){
+            countdownLabel.text = "RIGHT SIDE WINS";
+        }
+        else if (winner == -1){
+            countdownLabel.text = "DRAW";
+        }
+        begunGame = false;
+        numGamesPlayed++;
+    }
+
     function markVictory(id){
         if (id == 0){
             victoryMarkersP1[numVictoriesP1 - 1].animations.play("won");
@@ -512,9 +575,9 @@ window.onload = function() {
                     p.forceUp();
                 }
             }
-            
+
         }
-        
+
         if (player1.isDead() || player2.isDead()){
             timer = game.time.events;
             var t = 1000;
@@ -531,11 +594,11 @@ window.onload = function() {
                 numVictoriesP2++;
                 timer.add(t, markVictory, this, 1);
             }
-            
+
             t += 700;
             timer.add(t, beginRound, this, false);
         }
-        
+
         player1.draw();
         player2.draw();
     }
