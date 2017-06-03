@@ -21,18 +21,26 @@ function Player(sprite, direction) {
     
     sprite.animations.add("idle", [0]);
     sprite.animations.add("stunned", [0,0,0,1], 15, true);
-    sprite.animations.play("idle");
     
     // _y: from 0 (high) to 2 (low)
+    this._homeX = this.sprite.x;
+    this.initialize();
+}
+
+Player.prototype.initialize = function(){
+    this.sprite.animations.play("idle");
+    
+    //redundant when called by constructor, but might be required after round
+    this.sprite.x = this._homeX;
+    
     this._isDead = false;
     this._velocity = {x: 0, y: 0};
-    this._homeX = sprite.x;
     this._targetSpritePosition = {x: this._homeX, y: 0};
     this.setGuardPosition(1, true, true);
     this._isThrusting = false;
     this._isRetracting = false;
-    this._x = sprite.x;
-    this._y = sprite.y;
+    this._x = this.sprite.x;
+    this._y = this.sprite.y;
     this._stunTimer = 0;
     this._willHitWall = false;
 }
@@ -267,45 +275,87 @@ Player.prototype.getBottomEdge = function(){
 window.onload = function() {
     
     var game = new Phaser.Game(800, 600, Phaser.AUTO, 'game', { create: create, update: update });
-
     var scaleManager = new Phaser.ScaleManager(game, game.width, game.height);
+    var graphics = new Phaser.Graphics(game, 0, 0);
+
     var player1;
     var player2;
-    var graphics = new Phaser.Graphics(game, 0, 0);
-    var controls;
     var countdownLabel;
+    var victoryMarkersP1 = [];
+    var victoryMarkersP2 = [];
+
+    var controls;
     var timeToStart = 3;
     var timer;
     var begun = false;
+    var numRoundsMax = 9;
+    var numVictoriesP1 = 0;
+    var numVictoriesP2 = 0;
 
     function preload () {
 
     }
 
     function create () {
-        var rectangleLength = 800;
+
+        // create the weapon spritesheets
+
+        var weaponLength = 800;
+        var weaponThickness = 70;
         var tipLength = 100;
         game.stage.backgroundColor = 0x000000;
         graphics.beginFill(0xffffff);
-        // graphics.drawRect(0, 0, rectangleLength, 70);
         graphics.drawPolygon([
-            {x: 0, y: 35},
+            {x: 0, y: weaponThickness / 2},
             {x: tipLength, y: 0},
-            {x: rectangleLength, y: 0},
-            {x: rectangleLength, y: 70},
-            {x: tipLength, y: 70},
+            {x: weaponLength, y: 0},
+            {x: weaponLength, y: weaponThickness},
+            {x: tipLength, y: weaponThickness},
         ])
         graphics.endFill();
 
         graphics.beginFill(0xffffff, 0);
-        graphics.drawRect(rectangleLength, 0, rectangleLength, 70);
+        graphics.drawRect(weaponLength, 0, weaponLength, 70);
         graphics.endFill();
 
-        this.cache.addSpriteSheet("player", null, graphics.generateTexture().baseTexture.source, rectangleLength, 70, 2);
+        this.cache.addSpriteSheet("player", null, graphics.generateTexture().baseTexture.source, weaponLength, weaponThickness, 2);
         graphics.clear();
         
+        // create the victory marker spritesheets
+
+        var markerSize = 20;
+        var markerLineWidth = 6;
+        graphics.beginFill(0xffffff, 1);
+        graphics.drawRect(0, 0, markerSize, markerSize);
+        graphics.endFill();
+        
+        graphics.lineStyle(markerLineWidth, 0xffffff, 1);
+        graphics.beginFill(0xffffff, 0);
+        graphics.drawRect(markerSize, 0, markerSize, markerSize);
+        graphics.endFill();
+        this.cache.addSpriteSheet("victoryMarker", null, graphics.generateTexture().baseTexture.source, markerSize, markerSize, 2);
+        graphics.clear();
+
+        // add the sprites
+
         player1 = new Player(game.add.sprite(350, game.world.centerY, "player"), 1);
         player2 = new Player(game.add.sprite(450, game.world.centerY, "player"), -1);
+        
+        var victoryMarkerSpacing = 20;
+        var victoryMarkerX = 40;
+        var victoryMarkerY = 560;
+        for (var i = 0; i < (numRoundsMax + 1) / 2; i++){
+            var vm = [victoryMarkersP1, victoryMarkersP2];
+            for (var j = 0; j < 2; j++){
+                var x = (j == 0) ? victoryMarkerX + ((victoryMarkerSpacing + markerSize) * i) :
+                        game.width - victoryMarkerX - ((victoryMarkerSpacing + markerSize) * i);
+                vm[j][i] = game.add.sprite(x, victoryMarkerY, "victoryMarker");
+                vm[j][i].anchor.set(0.5);
+                vm[j][i].animations.add("empty", [1]);
+                vm[j][i].animations.add("won", [0]);
+                vm[j][i].animations.play("empty");
+            }
+        }
         
         controls = game.input.keyboard.addKeys( {
             "upP1": Phaser.KeyCode.W, 
@@ -326,11 +376,7 @@ window.onload = function() {
         countdownLabel = game.add.text(game.world.centerX, 100, "", { font: "64px Hack", fill: "#ffffff", align: "center" });
         countdownLabel.anchor.set(0.5);
         
-        timer = game.time.events;
-        for (var i = 0; i <= timeToStart; i++){
-            timer.add(1000 * i, updatePreGameTimer, this);
-        }
-        timer.add((timeToStart * 1000) + 500, clearPreGameTimer, this);
+        beginRound(true);
     }
     
     function updatePreGameTimer(){
@@ -346,6 +392,37 @@ window.onload = function() {
     
     function clearPreGameTimer(){
         countdownLabel.text = "";
+    }
+    
+    function beginRound(isFirstRound){
+        console.log("meow")
+        if (!isFirstRound){
+            player1.initialize();
+            player2.initialize();
+        }
+        
+        if (numVictoriesP1 > numRoundsMax / 2){
+            if (numVictoriesP2 > numRoundsMax / 2){
+                console.log("draw!");
+            }
+            else {
+                console.log("left side wins!");
+            }
+            return;
+        }
+        else if (numVictoriesP2 > numRoundsMax / 2){
+            console.log("right side wins!");
+            return;
+        }
+
+        begun = false;
+        timer = game.time.events;
+        timeToStart = 3;
+        for (var i = 0; i <= timeToStart; i++){
+            timer.add(1000 * i, updatePreGameTimer, this);
+        }
+        timer.add((timeToStart * 1000) + 500, clearPreGameTimer, this);
+        timer.start();
     }
     
     function pressedUpP1(key){
@@ -398,14 +475,27 @@ window.onload = function() {
         player2.update();
         postUpdate(player1, player2);
     }
+    
+    function markVictory(id){
+        if (id == 0){
+            victoryMarkersP1[numVictoriesP1 - 1].animations.play("won");
+        }
+        else if (id == 1){
+            victoryMarkersP2[numVictoriesP2 - 1].animations.play("won");
+        }
+    }
 
     function postUpdate(player1, player2){
+        if (player1.isDead() || player2.isDead()){
+            return;
+        }
+
         for (var i = 0; i < 2; i++){
             var p = (i == 0) ? player1 : player2;
             var other = (i == 0) ? player2 : player1;
 
             if (p.isThrusting() && p.getX() == p.getGoalX()){
-                p.retract();
+                //p.retract();
                 other.kill();
             }
             else if (p.isThrusting() && p.isOverlappingX(other) && p.getGuardPosition() == other.getGuardPosition()){
@@ -423,6 +513,27 @@ window.onload = function() {
                 }
             }
             
+        }
+        
+        if (player1.isDead() || player2.isDead()){
+            timer = game.time.events;
+            var t = 1000;
+            if (player2.isDead()){
+                numVictoriesP1++;
+                timer.add(1000, markVictory, this, 0);
+                if (player1.isDead()){
+                    numVictoriesP2++;
+                    t += 700;
+                    timer.add(t, markVictory, this, 1);
+                }
+            }
+            else {
+                numVictoriesP2++;
+                timer.add(t, markVictory, this, 1);
+            }
+            
+            t += 700;
+            timer.add(t, beginRound, this, false);
         }
         
         player1.draw();
