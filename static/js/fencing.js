@@ -21,6 +21,7 @@ function Player(sprite, direction) {
 
     sprite.animations.add("idle", [0]);
     sprite.animations.add("stunned", [0,0,0,1], 15, true);
+    sprite.animations.add("hidden", [1]);
 
     // _y: from 0 (high) to 2 (low)
     this._homeX = this.sprite.x;
@@ -173,6 +174,10 @@ Player.prototype.kill = function(){
     this.sprite.animations.play("idle");
 }
 
+Player.prototype.hide = function(){
+    this.sprite.animations.play("hidden");
+}
+
 Player.prototype.forceUp = function(){
     this.retract(true);
     this.moveUp(true);
@@ -281,18 +286,36 @@ window.onload = function() {
 
     var player1;
     var player2;
-    var countdownLabel;
-    var generalLabel;
+    var splashScreen;
+    var pressToStartLabel;
     var titleLabel;
+    var creditsLabel;
+    var controlsP1Label;
+    var controlsP2Label;
+    var controlsP1HeaderLabel;
+    var controlsP2HeaderLabel;
+    var countdownLabel;
+    var pressToRestartLabel;
     var victoryMarkersP1 = [];
     var victoryMarkersP2 = [];
 
-    var controls;
+    var playerInputHandler;
+    var startKeyHandler;
+    var playerControls = {
+        "upP1": "W",
+        "downP1": "S",
+        "thrustP1": "D",
+        'upP2': "UP",
+        "downP2": "DOWN",
+        "thrustP2": "LEFT"
+    }
+    var startKey = Phaser.KeyCode.SPACEBAR;
+
     var timeToStart = 3;
     var timer;
     var begunRound = false;
     var begunGame = false;
-    var numRoundsMax = 3;
+    var numRoundsMax = 9;
     var numVictoriesP1 = 0;
     var numVictoriesP2 = 0;
     var numGamesPlayed = 0;
@@ -342,25 +365,73 @@ window.onload = function() {
         graphics.clear();
 
         // add the text labels
+        
+        splashScreen = game.add.group()
 
-        countdownLabel = game.add.text(game.world.centerX, 100, "", { font: "64px Hack", fill: "#ffffff", align: "center" });
-        countdownLabel.anchor.set(0.5);
-
-        timer = game.time.events;
-        timer.add(500, function(){
-            generalLabel = game.add.text(game.world.centerX, 300, "", { font: "32px Hack", fill: "#ffffff", align: "center" });
-            generalLabel.anchor.set(0.5);
-            generalLabel.text = "PRESS ANY KEY TO BEGIN";
-        }, this);
-
-        game.input.keyboard.addCallbacks(this, function() {
-            if (!begunGame){
-                beginGame();
-                console.log("missy is cute");
-            }
+        countdownLabel = game.add.text(game.world.centerX, 100, "", { font: "64px Hack, monospace", fill: "#ffffff", align: "center" });
+        pressToRestartLabel = game.add.text(game.world.centerX, 300, "", { font: "32px Hack, monospace", fill: "#ffffff", align: "center" });
+        [countdownLabel, pressToRestartLabel].forEach(function(v){
+            v.anchor.set(0.5);
         });
 
-        //beginGame();
+        creditsLabel = game.add.text(game.world.centerX, 550, "", { font: "11px Hack, monospace", fill: "#ffffff", align: "center" });
+        pressToStartLabel = game.add.text(game.world.centerX, 460, "", { font: "32px Hack, monospace", fill: "#ffffff", align: "center" });
+        controlsP1Label = game.add.text(game.world.centerX - 200, 270, "", { font: "20px Hack, monospace", fill: "#ffffff", align: "center" });
+        controlsP2Label = game.add.text(game.world.centerX + 200, 270, "", { font: "20px Hack, monospace", fill: "#ffffff", align: "center" });
+        controlsP1HeaderLabel = game.add.text(game.world.centerX - 200, 230, "", { font: "24px Hack, monospace", fill: "#ffffff", align: "center" });
+        controlsP2HeaderLabel = game.add.text(game.world.centerX + 200, 230, "", { font: "24px Hack, monospace", fill: "#ffffff", align: "center" });
+
+        [creditsLabel, pressToStartLabel, controlsP1HeaderLabel, controlsP2HeaderLabel].forEach(function(v){
+            v.anchor.set(0.5);
+            splashScreen.addChild(v);
+        });
+        [controlsP1Label, controlsP2Label].forEach(function(v){
+            v.anchor.set(0.5, 0);
+            splashScreen.addChild(v);
+        });
+
+        // create splash screen
+        timer = game.time.events;
+        var keyNameToChar = function(n){
+            return (n == "UP") ? "▲" :
+                   (n == "DOWN") ? "▼" :
+                   (n == "RIGHT") ? "►" :
+                   (n == "LEFT") ? "◄" :
+                   n;
+        }
+        timer.add(500, function(){
+            pressToStartLabel.text = "PRESS SPACE KEY TO BEGIN";
+            countdownLabel.text = "I JAB AT THEE";
+            creditsLabel.text = "prototype A\n" +
+                                "(c) decky coss 2017\n" +
+                                "\"Hack\" font by christopher simpkins (https://github.com/chrissimpkins/Hack)\n" +
+                                "made with love for christopher psukhe";
+            controlsP1Label.text = "guard up:      " + keyNameToChar(playerControls.upP1) + "\n" +
+                                   "guard down:    " + keyNameToChar(playerControls.downP1) + "\n" +
+                                   "thrust:        " + keyNameToChar(playerControls.thrustP1);
+            controlsP2Label.text = "guard up:      " + keyNameToChar(playerControls.upP2) + "\n" +
+                                   "guard down:    " + keyNameToChar(playerControls.downP2) + "\n" +
+                                   "thrust:        " + keyNameToChar(playerControls.thrustP2);
+            controlsP1HeaderLabel.text = "PLAYER 1 CONTROLS";
+            controlsP2HeaderLabel.text = "PLAYER 2 CONTROLS";
+
+            startKeyHandler = game.input.keyboard.addKey(startKey);
+            startKeyHandler.onDown.add(function(){
+                if (!begunGame){
+                    beginGame();
+                }
+            })
+        }, this);
+
+        playerInputHandler = game.input.keyboard.addKeys(function(){
+            controls = [];
+            Object.keys(playerControls).forEach(function(v,i){
+                controls[v] = Phaser.KeyCode[playerControls[v]];
+            });
+            return controls;
+        }());
+        
+        console.log(playerInputHandler);
     }
 
     function beginGame(){
@@ -390,21 +461,12 @@ window.onload = function() {
 
             // set controls
 
-            controls = game.input.keyboard.addKeys( {
-                "upP1": Phaser.KeyCode.W,
-                "downP1": Phaser.KeyCode.S,
-                "thrustP1": Phaser.KeyCode.D,
-                'upP2': Phaser.KeyCode.UP,
-                "downP2": Phaser.KeyCode.DOWN,
-                "thrustP2": Phaser.KeyCode.LEFT
-            });
-
-            controls.upP1.onDown.add(pressedUpP1);
-            controls.downP1.onDown.add(pressedDownP1);
-            controls.thrustP1.onDown.add(pressedThrustP1);
-            controls.upP2.onDown.add(pressedUpP2);
-            controls.downP2.onDown.add(pressedDownP2);
-            controls.thrustP2.onDown.add(pressedThrustP2);
+            playerInputHandler.upP1.onDown.add(pressedUpP1);
+            playerInputHandler.downP1.onDown.add(pressedDownP1);
+            playerInputHandler.thrustP1.onDown.add(pressedThrustP1);
+            playerInputHandler.upP2.onDown.add(pressedUpP2);
+            playerInputHandler.downP2.onDown.add(pressedDownP2);
+            playerInputHandler.thrustP2.onDown.add(pressedThrustP2);
         }
 
         else {
@@ -417,10 +479,10 @@ window.onload = function() {
             }
             player1.initialize();
             player2.initialize();
+            pressToRestartLabel.text = "";
         }
 
-        // reset text labels
-        generalLabel.text = "";
+        splashScreen.visible = false;
 
         numVictoriesP1 = 0;
         numVictoriesP2 = 0;
@@ -528,13 +590,20 @@ window.onload = function() {
     function endGame(winner) {
         if (winner == 0){
             countdownLabel.text = "LEFT SIDE WINS";
+            player2.hide();
         }
         else if (winner == 1){
             countdownLabel.text = "RIGHT SIDE WINS";
+            player1.hide();
         }
         else if (winner == -1){
             countdownLabel.text = "DRAW";
         }
+        player1.setGuardPosition(2, true, true);
+        player2.setGuardPosition(2, true, true);
+        player1.draw();
+        player2.draw();
+        pressToRestartLabel.text = "PRESS SPACE KEY TO RESTART";
         begunGame = false;
         numGamesPlayed++;
     }
