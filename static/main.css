@@ -10,6 +10,11 @@ body {
     margin-left: auto;
     margin-right: auto;
 }
+#game_description {
+  margin-left: auto;
+  margin-right: auto;
+  width: 800px;
+}
 @font-face {
   font-family: "Hack";
   src: url("fonts/Hack-Regular.ttf") format("truetype");
