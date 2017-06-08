@@ -2,6 +2,7 @@ body {
   background-color: black;
   color: white;
   font-family: "Hack", monospace;
+  margin-top: 0;
 }
 #game {
     width: 800px;

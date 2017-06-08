@@ -1,4 +1,21 @@
-var doneLoadingFonts = true;
+/*
+
+Copyright Decky Coss 2017
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+*/
 
 function Player(sprite, direction) {
     this.direction = direction;
@@ -394,12 +411,12 @@ window.onload = function() {
             "countdown0": game.load.audio("countdown0", "sounds/jab_go.wav"),
             "wonP1": game.load.audio("wonP1", "sounds/wonp1.wav"),
             "wonP2": game.load.audio("wonP2", "sounds/wonp2.wav"),
+            "gameover": game.load.audio("gameover", ["sounds/jab_gameover.ogg", "sounds/jab_gameover.mp3"]),
         };
 
     }
 
     function create () {
-
         // create the weapon spritesheets
 
         var weaponLength = 800;
@@ -489,19 +506,18 @@ window.onload = function() {
         
         game.sound.setDecodedCallback(Object.keys(soundLoaders), function(){
             areSoundsLoaded = true;
-            console.log("sounds loaded!");
             timer.add(500, function(){
                 pressToStartLabel.text = "PRESS SPACE KEY TO BEGIN";
                 countdownLabel.text = "I JAB AT THEE";
-                creditsLabel.text = "prototype B\n" +
+                creditsLabel.text = "prototype C\n" +
                                     "(c) decky coss 2017\n" +
                                     "\"Hack\" font by christopher simpkins (https://github.com/chrissimpkins/Hack)\n" +
                                     "made with love for christopher psukhe";
-                controlsP1Label.text = "guard up:      " + keyNameToChar(playerControls.upP1) + "\n" +
-                                       "guard down:    " + keyNameToChar(playerControls.downP1) + "\n" +
+                controlsP1Label.text = "move up:       " + keyNameToChar(playerControls.upP1) + "\n" +
+                                       "move down:     " + keyNameToChar(playerControls.downP1) + "\n" +
                                        "thrust:        " + keyNameToChar(playerControls.thrustP1);
-                controlsP2Label.text = "guard up:      " + keyNameToChar(playerControls.upP2) + "\n" +
-                                       "guard down:    " + keyNameToChar(playerControls.downP2) + "\n" +
+                controlsP2Label.text = "move up:       " + keyNameToChar(playerControls.upP2) + "\n" +
+                                       "move down:     " + keyNameToChar(playerControls.downP2) + "\n" +
                                        "thrust:        " + keyNameToChar(playerControls.thrustP2);
                 controlsP1HeaderLabel.text = "PLAYER 1 CONTROLS";
                 controlsP2HeaderLabel.text = "PLAYER 2 CONTROLS";
@@ -561,7 +577,6 @@ window.onload = function() {
         }
 
         else {
-            console.log("missy is still cute")
             for (var i = 0; i < (numRoundsMax + 1) / 2; i++){
                 var vm = [victoryMarkersP1, victoryMarkersP2];
                 for (var j = 0; j < 2; j++){
@@ -676,7 +691,7 @@ window.onload = function() {
     }
 
     function update() {
-        if (!doneLoadingFonts || !begunGame){
+        if (!begunGame){
             return;
         }
 
@@ -704,6 +719,8 @@ window.onload = function() {
         pressToRestartLabel.text = "PRESS SPACE KEY TO RESTART";
         begunGame = false;
         numGamesPlayed++;
+        
+        playSound("gameover");
     }
 
     function markVictory(id){
