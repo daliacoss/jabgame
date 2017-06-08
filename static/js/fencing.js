@@ -25,6 +25,7 @@ function Player(sprite, direction) {
 
     // _y: from 0 (high) to 2 (low)
     this._homeX = this.sprite.x;
+    this._sounds = {};
     this.initialize();
 }
 
@@ -46,7 +47,31 @@ Player.prototype.initialize = function(){
     this._willHitWall = false;
 }
 
-Player.prototype.setGuardPosition = function(y, force, moveInstantly){
+Player.prototype.playSound = function(key){
+    if (!this._sounds[key]){
+        var adjustedKey = key;
+        if (["attack", "moveGuard"].indexOf(key) != -1){
+            adjustedKey += (this.direction > 0) ? "P1" :
+                           (this.direction < 0) ? "P2" :
+                           "";
+        }
+        this._sounds[key] = this.sprite.game.sound.play(adjustedKey);
+    }
+    else {
+        this._sounds[key].play();
+    }
+}
+
+Player.prototype.stopSound = function(key){
+    var adjustedKey = (key == "attack" && this.direction > 0) ? "attackP1" :
+          (key == "attack" && this.direction < 0) ? "attackP2" :
+          key;
+    if (this._sounds[key]){
+        this._sounds[key].stop();
+    }
+}
+
+Player.prototype.setGuardPosition = function(y, force, moveInstantly, initiatedByController){
     if ( ((y < 0 || y > 2 || this._velocity.y != 0 || this.isThrusting() || this.isRetracting()) && !force) ){
         return;
     }
@@ -67,6 +92,10 @@ Player.prototype.setGuardPosition = function(y, force, moveInstantly){
     }
     if (moveInstantly){
         this._y = this._targetSpritePosition.y;
+    }
+    
+    if (initiatedByController){
+        this.playSound("moveGuard");
     }
 
 }
@@ -115,12 +144,31 @@ Player.prototype.getVelocityY = function(){
     return this._velocity.y;
 }
 
+Player.prototype.isOverlappingX = function(other){
+    if (this.direction != other.direction * -1){
+        return;
+    }
+
+    return (this.direction > 0) ? this._x >= other.getX() :
+           (this.direction < 0) ? this._x <= other.getX() :
+           false;
+}
+
+Player.prototype.getTopEdge = function(){
+    return this._y - (this.sprite.height / 2);
+}
+
+
+Player.prototype.getBottomEdge = function(){
+    return this._y + (this.sprite.height / 2);
+}
+
 Player.prototype.moveUp = function(force){
     if (this._isDead){
         return;
     }
 
-    this.setGuardPosition(this._guardPosition - 1, force);
+    this.setGuardPosition(this._guardPosition - 1, force, false, true);
 }
 
 Player.prototype.moveDown = function(force){
@@ -128,7 +176,7 @@ Player.prototype.moveDown = function(force){
         return;
     }
 
-    this.setGuardPosition(this._guardPosition + 1, force);
+    this.setGuardPosition(this._guardPosition + 1, force, false, true);
 }
 
 Player.prototype.thrust = function(){
@@ -145,6 +193,8 @@ Player.prototype.thrust = function(){
         y: this._y
     }
     this._isThrusting = true;
+    
+    this.playSound("attack");
 }
 
 Player.prototype.retract = function(retractImmediately){
@@ -192,12 +242,35 @@ Player.prototype.parryUp = function(){
     if (this._guardPosition == 0){
         this.setGuardPosition(1, true);
     }
+    this.playSound("parry");
 }
 
 Player.prototype.parryDown = function(){
     if (this._guardPosition == 2){
         this.setGuardPosition(1, true);
     }
+    this.playSound("parry");
+}
+
+Player.prototype.hitCeiling = function(){
+    this.setGuardPosition(0);
+    this.stun();
+    //this.currentSound = this.sprite.game.sound.play("crash");
+    this.playSound("crash");
+}
+
+Player.prototype.hitFloor = function(){
+    this.setGuardPosition(2);
+    this.stun();
+    //this.currentSound = this.sprite.game.sound.play("crash");
+    this.playSound("crash");
+}
+
+Player.prototype.hitHeadOn = function(){
+    this.stun(true);
+    //this.currentSound = this.sprite.game.sound.play("headon");
+    this.stopSound("attack");
+    this.playSound("headon");
 }
 
 Player.prototype.update = function(){
@@ -237,12 +310,11 @@ Player.prototype.update = function(){
         }
 
         if (this.getTopEdge() <= 0){
-            this.setGuardPosition(0);
-            this.stun();
+            this.hitCeiling();
+
         }
         else if (this.getBottomEdge() >= this.sprite.game.height){
-            this.setGuardPosition(2);
-            this.stun();
+            this.hitFloor();
         }
     }
 
@@ -259,28 +331,10 @@ Player.prototype.draw = function(){
     this.sprite.y = this._y;
 }
 
-Player.prototype.isOverlappingX = function(other){
-    if (this.direction != other.direction * -1){
-        return;
-    }
-
-    return (this.direction > 0) ? this._x >= other.getX() :
-           (this.direction < 0) ? this._x <= other.getX() :
-           false;
-}
-
-Player.prototype.getTopEdge = function(){
-    return this._y - (this.sprite.height / 2);
-}
-
-
-Player.prototype.getBottomEdge = function(){
-    return this._y + (this.sprite.height / 2);
-}
-
 window.onload = function() {
-
-    var game = new Phaser.Game(800, 600, Phaser.AUTO, 'game', { create: create, update: update });
+    var game = new Phaser.Game(800, 600, Phaser.AUTO, 'game', {
+        preload: preload, create: create, update: update
+    });
     var scaleManager = new Phaser.ScaleManager(game, game.width, game.height);
     var graphics = new Phaser.Graphics(game, 0, 0);
 
@@ -298,6 +352,11 @@ window.onload = function() {
     var pressToRestartLabel;
     var victoryMarkersP1 = [];
     var victoryMarkersP2 = [];
+    
+    var soundLoaders;
+    var sounds = {};
+
+    var areSoundsLoaded;
 
     var playerInputHandler;
     var startKeyHandler;
@@ -320,7 +379,22 @@ window.onload = function() {
     var numVictoriesP2 = 0;
     var numGamesPlayed = 0;
 
-    function preload () {
+    function preload () {      
+        soundLoaders = {
+            "crash": game.load.audio("crash", ["sounds/jab_hitceilingorfloor.ogg", "sounds/jab_hitceilingorfloor.mp3"]),
+            "headon": game.load.audio("headon", ["sounds/jab_headon.ogg", "sounds/jab_headon.mp3"]),
+            "attackP1": game.load.audio("attackP1", ["sounds/jab_attackp1.ogg", "sounds/jab_attackp1.mp3"]),
+            "attackP2": game.load.audio("attackP2", ["sounds/jab_attackp2.ogg", "sounds/jab_attackp2.mp3"]),
+            "moveGuardP1": game.load.audio("moveGuardP1", ["sounds/jab_moveguardp1.ogg", "sounds/jab_moveguardp1.mp3"]),
+            "moveGuardP2": game.load.audio("moveGuardP2", ["sounds/jab_moveguardp2.ogg", "sounds/jab_moveguardp2.mp3"]),
+            "parry": game.load.audio("parry", ["sounds/jab_parry.ogg", "sounds/jab_parry.mp3"]),
+            "countdown3": game.load.audio("countdown3", "sounds/jab_fshigh.wav"),
+            "countdown2": game.load.audio("countdown2", "sounds/jab_cslow.wav"),
+            "countdown1": game.load.audio("countdown1", "sounds/jab_fslow.wav"),
+            "countdown0": game.load.audio("countdown0", "sounds/jab_go.wav"),
+            "wonP1": game.load.audio("wonP1", "sounds/wonp1.wav"),
+            "wonP2": game.load.audio("wonP2", "sounds/wonp2.wav"),
+        };
 
     }
 
@@ -391,6 +465,7 @@ window.onload = function() {
         });
 
         // create splash screen
+
         timer = game.time.events;
         var keyNameToChar = function(n){
             return (n == "UP") ? "▲" :
@@ -399,29 +474,8 @@ window.onload = function() {
                    (n == "LEFT") ? "◄" :
                    n;
         }
-        timer.add(500, function(){
-            pressToStartLabel.text = "PRESS SPACE KEY TO BEGIN";
-            countdownLabel.text = "I JAB AT THEE";
-            creditsLabel.text = "prototype A\n" +
-                                "(c) decky coss 2017\n" +
-                                "\"Hack\" font by christopher simpkins (https://github.com/chrissimpkins/Hack)\n" +
-                                "made with love for christopher psukhe";
-            controlsP1Label.text = "guard up:      " + keyNameToChar(playerControls.upP1) + "\n" +
-                                   "guard down:    " + keyNameToChar(playerControls.downP1) + "\n" +
-                                   "thrust:        " + keyNameToChar(playerControls.thrustP1);
-            controlsP2Label.text = "guard up:      " + keyNameToChar(playerControls.upP2) + "\n" +
-                                   "guard down:    " + keyNameToChar(playerControls.downP2) + "\n" +
-                                   "thrust:        " + keyNameToChar(playerControls.thrustP2);
-            controlsP1HeaderLabel.text = "PLAYER 1 CONTROLS";
-            controlsP2HeaderLabel.text = "PLAYER 2 CONTROLS";
-
-            startKeyHandler = game.input.keyboard.addKey(startKey);
-            startKeyHandler.onDown.add(function(){
-                if (!begunGame){
-                    beginGame();
-                }
-            })
-        }, this);
+        
+        // create the input handler
 
         playerInputHandler = game.input.keyboard.addKeys(function(){
             controls = [];
@@ -431,7 +485,44 @@ window.onload = function() {
             return controls;
         }());
         
-        console.log(playerInputHandler);
+        // allow game to start when assets have loaded
+        
+        game.sound.setDecodedCallback(Object.keys(soundLoaders), function(){
+            areSoundsLoaded = true;
+            console.log("sounds loaded!");
+            timer.add(500, function(){
+                pressToStartLabel.text = "PRESS SPACE KEY TO BEGIN";
+                countdownLabel.text = "I JAB AT THEE";
+                creditsLabel.text = "prototype B\n" +
+                                    "(c) decky coss 2017\n" +
+                                    "\"Hack\" font by christopher simpkins (https://github.com/chrissimpkins/Hack)\n" +
+                                    "made with love for christopher psukhe";
+                controlsP1Label.text = "guard up:      " + keyNameToChar(playerControls.upP1) + "\n" +
+                                       "guard down:    " + keyNameToChar(playerControls.downP1) + "\n" +
+                                       "thrust:        " + keyNameToChar(playerControls.thrustP1);
+                controlsP2Label.text = "guard up:      " + keyNameToChar(playerControls.upP2) + "\n" +
+                                       "guard down:    " + keyNameToChar(playerControls.downP2) + "\n" +
+                                       "thrust:        " + keyNameToChar(playerControls.thrustP2);
+                controlsP1HeaderLabel.text = "PLAYER 1 CONTROLS";
+                controlsP2HeaderLabel.text = "PLAYER 2 CONTROLS";
+
+                startKeyHandler = game.input.keyboard.addKey(startKey);
+                startKeyHandler.onDown.add(function(){
+                    if (!begunGame){
+                        beginGame();
+                    }
+                })
+            }, this);
+        }, this);
+    }
+    
+    function playSound(key){
+        if (!sounds[key]){
+            sounds[key] = game.sound.play(key);
+        }
+        else {
+            sounds[key].play();
+        }
     }
 
     function beginGame(){
@@ -494,16 +585,23 @@ window.onload = function() {
     function updatePreGameTimer(){
         if (timeToStart > 0){
             countdownLabel.text = timeToStart.toString();
+            playSound("countdown" + timeToStart.toString());
         }
         else {
             begunRound = true;
             countdownLabel.text = "FIGHT";
+            playSound("countdown0");
         }
         timeToStart--;
+        
     }
 
     function clearPreGameTimer(){
         countdownLabel.text = "";
+    }
+    
+    function areAssetsLoaded(){
+        return areSoundsLoaded;
     }
 
     function beginRound(isFirstRound){
@@ -611,9 +709,11 @@ window.onload = function() {
     function markVictory(id){
         if (id == 0){
             victoryMarkersP1[numVictoriesP1 - 1].animations.play("won");
+            playSound("wonP1");
         }
         else if (id == 1){
             victoryMarkersP2[numVictoriesP2 - 1].animations.play("won");
+            playSound("wonP2");
         }
     }
 
@@ -632,14 +732,13 @@ window.onload = function() {
             }
             else if (p.isThrusting() && p.isOverlappingX(other) && p.getGuardPosition() == other.getGuardPosition()){
                 if (other.getY() == p.getY()){
-                    p.stun(true);
+                    p.hitHeadOn();
                 }
                 else if (other.getTopEdge() < p.getTopEdge() && p.getTopEdge() < other.getBottomEdge() && other.getVelocityY() > 0){
                     other.parryDown();
                     p.forceDown();
                 }
                 else if (p.getTopEdge() < other.getTopEdge() && other.getTopEdge() < p.getBottomEdge() && other.getVelocityY() < 0){
-                    // console.log(p.getTopEdge(), other.getTopEdge(), p.getBottomEdge());
                     other.parryUp();
                     p.forceUp();
                 }
