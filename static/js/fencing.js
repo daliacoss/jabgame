@@ -377,6 +377,8 @@ window.onload = function() {
 
     var playerInputHandler;
     var startKeyHandler;
+    var debugKeyHandler;
+    var frameSkipKeyHandler;
     var playerControls = {
         "upP1": "W",
         "downP1": "S",
@@ -395,6 +397,9 @@ window.onload = function() {
     var numVictoriesP1 = 0;
     var numVictoriesP2 = 0;
     var numGamesPlayed = 0;
+    
+    var debugMode = false;
+    var frozen = false;
 
     function preload () {      
         soundLoaders = {
@@ -509,7 +514,7 @@ window.onload = function() {
             timer.add(500, function(){
                 pressToStartLabel.text = "PRESS SPACE KEY TO BEGIN";
                 countdownLabel.text = "I JAB AT THEE";
-                creditsLabel.text = "prototype C\n" +
+                creditsLabel.text = "revision A\n" +
                                     "(c) decky coss 2017\n" +
                                     "\"Hack\" font by christopher simpkins (https://github.com/chrissimpkins/Hack)\n" +
                                     "made with love for christopher psukhe";
@@ -528,6 +533,17 @@ window.onload = function() {
                         beginGame();
                     }
                 })
+                // debugKeyHandler = game.input.keyboard.addKey(Phaser.KeyCode.U);
+                // debugKeyHandler.onDown.add(function(){
+                //     debugMode = !debugMode;
+                //     if (!debugMode){
+                //         frozen = false;
+                //     }
+                // })
+                // frameSkipKeyHandler = game.input.keyboard.addKey(Phaser.KeyCode.I);
+                // frameSkipKeyHandler.onDown.add(function(){
+                //     frozen = false;
+                // })
             }, this);
         }, this);
     }
@@ -691,13 +707,17 @@ window.onload = function() {
     }
 
     function update() {
-        if (!begunGame){
+        if (!begunGame || frozen){
             return;
         }
-
+        
         player1.update();
         player2.update();
         postUpdate(player1, player2);
+
+        if (debugMode){
+            frozen = true;
+        }
     }
 
     function endGame(winner) {
@@ -724,6 +744,7 @@ window.onload = function() {
     }
 
     function markVictory(id){
+        console.log(graphics.generateTexture().baseTexture.source.toDataURL("image/png"));
         if (id == 0){
             victoryMarkersP1[numVictoriesP1 - 1].animations.play("won");
             playSound("wonP1");
