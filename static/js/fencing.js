@@ -514,7 +514,7 @@ window.onload = function() {
             timer.add(500, function(){
                 pressToStartLabel.text = "PRESS SPACE KEY TO BEGIN";
                 countdownLabel.text = "I JAB AT THEE";
-                creditsLabel.text = "revision A\n" +
+                creditsLabel.text = "revision A.1\n" +
                                     "(c) decky coss 2017\n" +
                                     "\"Hack\" font by christopher simpkins (https://github.com/chrissimpkins/Hack)\n" +
                                     "made with love for christopher psukhe";
@@ -744,7 +744,6 @@ window.onload = function() {
     }
 
     function markVictory(id){
-        console.log(graphics.generateTexture().baseTexture.source.toDataURL("image/png"));
         if (id == 0){
             victoryMarkersP1[numVictoriesP1 - 1].animations.play("won");
             playSound("wonP1");
