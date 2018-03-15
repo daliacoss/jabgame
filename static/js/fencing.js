@@ -17,6 +17,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+REVISION_NUMBER = "B(abycastles)";
+YEAR = "2018";
+
 function Player(sprite, direction) {
     this.direction = direction;
     this.sprite = sprite;
@@ -358,13 +361,17 @@ window.onload = function() {
     var player1;
     var player2;
     var splashScreen;
+    var helpScreen;
     var pressToStartLabel;
     var titleLabel;
+    var subtitleLabel;
     var creditsLabel;
     var controlsP1Label;
     var controlsP2Label;
     var controlsP1HeaderLabel;
     var controlsP2HeaderLabel;
+    var rulesLabel;
+    var pressToStartFightLabel;
     var countdownLabel;
     var pressToRestartLabel;
     var victoryMarkersP1 = [];
@@ -393,6 +400,7 @@ window.onload = function() {
     var timer;
     var begunRound = false;
     var begunGame = false;
+    var showedHelpScreen = false;
     var numRoundsMax = 9;
     var numVictoriesP1 = 0;
     var numVictoriesP2 = 0;
@@ -419,6 +427,57 @@ window.onload = function() {
             "gameover": game.load.audio("gameover", ["sounds/jab_gameover.ogg", "sounds/jab_gameover.mp3"]),
         };
 
+    }
+    function showSplashScreen(){
+
+        pressToStartLabel.text = "PRESS SPACE KEY TO CONTINUE";
+        titleLabel.text = "I JAB AT THEE";
+        subtitleLabel.text = "a game for two players\nby decky coss";
+        creditsLabel.text = "revision " + REVISION_NUMBER + "\n" +
+                            "(c) decky coss " + YEAR + "\n" +
+                            "\"Hack\" font by christopher simpkins (https://github.com/chrissimpkins/Hack)\n" +
+                            "made with love for christopher psukhe";
+
+        startKeyHandler = game.input.keyboard.addKey(startKey);
+        startKeyHandler.onDown.add(function(){
+            if (!showedHelpScreen){
+                showHelpScreen();
+            }
+            else if (!begunGame){
+                beginGame();
+            }
+        });
+        
+        splashScreen.visible = true;
+    }
+    
+    function showHelpScreen(){
+        splashScreen.visible = false;
+
+        var keyNameToChar = function(n){
+            return (n == "UP") ? "▲" :
+                   (n == "DOWN") ? "▼" :
+                   (n == "RIGHT") ? "►" :
+                   (n == "LEFT") ? "◄" :
+                   n;
+        }
+
+        controlsP1HeaderLabel.text = "PLAYER 1 CONTROLS";
+        controlsP2HeaderLabel.text = "PLAYER 2 CONTROLS";
+        controlsP1Label.text = "move up:       " + keyNameToChar(playerControls.upP1) + "\n" +
+                               "move down:     " + keyNameToChar(playerControls.downP1) + "\n" +
+                               "thrust:        " + keyNameToChar(playerControls.thrustP1);
+        controlsP2Label.text = "move up:       " + keyNameToChar(playerControls.upP2) + "\n" +
+                               "move down:     " + keyNameToChar(playerControls.downP2) + "\n" +
+                               "thrust:        " + keyNameToChar(playerControls.thrustP2);
+        rulesLabel.text = "The first fighter to hit their opponent's edge of the screen wins\nthe round. (Ties are possible.)\n\n" +
+                          "Move your weapon up and down to parry your opponent's attacks and\npass their guard.\n\n" +
+                          "If you hit your opponent's weapon head-on, or if you are parried\ninto the ceiling or floor, you will be stunned.\n\n" +
+                          "While stunned, you can move your weapon up and down, but you\ncannot attack.";
+        pressToStartFightLabel.text = "PRESS SPACE KEY TO FIGHT";
+
+        helpScreen.visible = true;
+        showedHelpScreen = true;
     }
 
     function create () {
@@ -463,6 +522,7 @@ window.onload = function() {
         // add the text labels
         
         splashScreen = game.add.group()
+        helpScreen = game.add.group()
 
         countdownLabel = game.add.text(game.world.centerX, 100, "", { font: "64px Hack, monospace", fill: "#ffffff", align: "center" });
         pressToRestartLabel = game.add.text(game.world.centerX, 300, "", { font: "32px Hack, monospace", fill: "#ffffff", align: "center" });
@@ -472,30 +532,27 @@ window.onload = function() {
 
         creditsLabel = game.add.text(game.world.centerX, 550, "", { font: "11px Hack, monospace", fill: "#ffffff", align: "center" });
         pressToStartLabel = game.add.text(game.world.centerX, 460, "", { font: "32px Hack, monospace", fill: "#ffffff", align: "center" });
-        controlsP1Label = game.add.text(game.world.centerX - 200, 270, "", { font: "20px Hack, monospace", fill: "#ffffff", align: "center" });
-        controlsP2Label = game.add.text(game.world.centerX + 200, 270, "", { font: "20px Hack, monospace", fill: "#ffffff", align: "center" });
-        controlsP1HeaderLabel = game.add.text(game.world.centerX - 200, 230, "", { font: "24px Hack, monospace", fill: "#ffffff", align: "center" });
-        controlsP2HeaderLabel = game.add.text(game.world.centerX + 200, 230, "", { font: "24px Hack, monospace", fill: "#ffffff", align: "center" });
+        titleLabel = game.add.text(game.world.centerX, 180, "", { font: "64px Hack, monospace", fill: "#ffffff", align: "center" });
+        subtitleLabel = game.add.text(game.world.centerX, 320, "", { font: "28px Hack, monospace", fill: "#ffffff", align: "center" });
 
-        [creditsLabel, pressToStartLabel, controlsP1HeaderLabel, controlsP2HeaderLabel].forEach(function(v){
+        controlsP1Label = game.add.text(game.world.centerX - 200, 120, "", { font: "20px Hack, monospace", fill: "#ffffff", align: "center" });
+        controlsP2Label = game.add.text(game.world.centerX + 200, 120, "", { font: "20px Hack, monospace", fill: "#ffffff", align: "center" });
+        controlsP1HeaderLabel = game.add.text(game.world.centerX - 200, 60, "", { font: "24px Hack, monospace", fill: "#ffffff", align: "center" });
+        controlsP2HeaderLabel = game.add.text(game.world.centerX + 200, 60, "", { font: "24px Hack, monospace", fill: "#ffffff", align: "center" });
+        rulesLabel = game.add.text(game.world.centerX, 350, "", { font: "20px Hack, monospace", fill: "#ffffff", align: "left" });
+        pressToStartFightLabel = game.add.text(game.world.centerX, 550, "", { font: "28px Hack, monospace", fill: "#ffffff", align: "center" });
+
+        [creditsLabel, pressToStartLabel, titleLabel, subtitleLabel].forEach(function(v){
             v.anchor.set(0.5);
             splashScreen.addChild(v);
         });
-        [controlsP1Label, controlsP2Label].forEach(function(v){
-            v.anchor.set(0.5, 0);
-            splashScreen.addChild(v);
+        [rulesLabel, controlsP1HeaderLabel, controlsP2HeaderLabel, controlsP1Label, controlsP2Label, pressToStartFightLabel].forEach(function(v){
+            v.anchor.set(0.5);
+            helpScreen.addChild(v);
         });
 
-        // create splash screen
 
         timer = game.time.events;
-        var keyNameToChar = function(n){
-            return (n == "UP") ? "▲" :
-                   (n == "DOWN") ? "▼" :
-                   (n == "RIGHT") ? "►" :
-                   (n == "LEFT") ? "◄" :
-                   n;
-        }
         
         // create the input handler
 
@@ -507,44 +564,11 @@ window.onload = function() {
             return controls;
         }());
         
-        // allow game to start when assets have loaded
+        // allow splash screen to show when assets have loaded
         
         game.sound.setDecodedCallback(Object.keys(soundLoaders), function(){
             areSoundsLoaded = true;
-            timer.add(500, function(){
-                pressToStartLabel.text = "PRESS SPACE KEY TO BEGIN";
-                countdownLabel.text = "I JAB AT THEE";
-                creditsLabel.text = "revision A.1\n" +
-                                    "(c) decky coss 2017\n" +
-                                    "\"Hack\" font by christopher simpkins (https://github.com/chrissimpkins/Hack)\n" +
-                                    "made with love for christopher psukhe";
-                controlsP1Label.text = "move up:       " + keyNameToChar(playerControls.upP1) + "\n" +
-                                       "move down:     " + keyNameToChar(playerControls.downP1) + "\n" +
-                                       "thrust:        " + keyNameToChar(playerControls.thrustP1);
-                controlsP2Label.text = "move up:       " + keyNameToChar(playerControls.upP2) + "\n" +
-                                       "move down:     " + keyNameToChar(playerControls.downP2) + "\n" +
-                                       "thrust:        " + keyNameToChar(playerControls.thrustP2);
-                controlsP1HeaderLabel.text = "PLAYER 1 CONTROLS";
-                controlsP2HeaderLabel.text = "PLAYER 2 CONTROLS";
-
-                startKeyHandler = game.input.keyboard.addKey(startKey);
-                startKeyHandler.onDown.add(function(){
-                    if (!begunGame){
-                        beginGame();
-                    }
-                })
-                // debugKeyHandler = game.input.keyboard.addKey(Phaser.KeyCode.U);
-                // debugKeyHandler.onDown.add(function(){
-                //     debugMode = !debugMode;
-                //     if (!debugMode){
-                //         frozen = false;
-                //     }
-                // })
-                // frameSkipKeyHandler = game.input.keyboard.addKey(Phaser.KeyCode.I);
-                // frameSkipKeyHandler.onDown.add(function(){
-                //     frozen = false;
-                // })
-            }, this);
+            timer.add(500, showSplashScreen, this);
         }, this);
     }
     
@@ -556,8 +580,9 @@ window.onload = function() {
             sounds[key].play();
         }
     }
-
+    
     function beginGame(){
+        
 
         if (numGamesPlayed == 0){
 
@@ -605,6 +630,7 @@ window.onload = function() {
         }
 
         splashScreen.visible = false;
+        helpScreen.visible = false;
 
         numVictoriesP1 = 0;
         numVictoriesP2 = 0;

@@ -11,6 +11,16 @@ body {
     margin-left: auto;
     margin-right: auto;
 }
+#outer {
+  display: table;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+}
+#middle {
+  display: table-cell;
+  vertical-align: middle;
+}
 #game_description {
   margin-left: auto;
   margin-right: auto;
