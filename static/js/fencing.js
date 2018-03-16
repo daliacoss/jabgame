@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 REVISION_NUMBER = "B(abycastles)";
 YEAR = "2018";
+DEBUG = false;
 
 function Player(sprite, direction) {
     this.direction = direction;
@@ -437,16 +438,6 @@ window.onload = function() {
                             "(c) decky coss " + YEAR + "\n" +
                             "\"Hack\" font by christopher simpkins (https://github.com/chrissimpkins/Hack)\n" +
                             "made with love for christopher psukhe";
-
-        startKeyHandler = game.input.keyboard.addKey(startKey);
-        startKeyHandler.onDown.add(function(){
-            if (!showedHelpScreen){
-                showHelpScreen();
-            }
-            else if (!begunGame){
-                beginGame();
-            }
-        });
         
         splashScreen.visible = true;
     }
@@ -570,6 +561,30 @@ window.onload = function() {
             areSoundsLoaded = true;
             timer.add(500, showSplashScreen, this);
         }, this);
+        
+        // key handlers
+        
+        startKeyHandler = game.input.keyboard.addKey(startKey);
+        startKeyHandler.onDown.add(function(){
+            if (!showedHelpScreen){
+                showHelpScreen();
+            }
+            else if (!begunGame){
+                beginGame();
+            }
+        });
+
+        if (DEBUG){
+            debugKeyHandler = game.input.keyboard.addKey(Phaser.KeyCode.I);
+            debugKeyHandler.onDown.add(function(){
+                debugMode = !debugMode;
+                frozen = false;
+            });
+            frameSkipKeyHandler = game.input.keyboard.addKey(Phaser.KeyCode.O);
+            frameSkipKeyHandler.onDown.add(function(){
+                frozen = false;
+            });
+        }
     }
     
     function playSound(key){
@@ -789,11 +804,14 @@ window.onload = function() {
             var p = (i == 0) ? player1 : player2;
             var other = (i == 0) ? player2 : player1;
 
-            if (p.isThrusting() && p.getX() == p.getGoalX()){
-                //p.retract();
-                other.kill();
-            }
-            else if (p.isThrusting() && p.isOverlappingX(other) && p.getGuardPosition() == other.getGuardPosition()){
+            // if (p.isThrusting() && p.getX() == p.getGoalX()){
+            //     other.kill();
+            // } else
+            
+            // remove the check for the guard positions if you want all
+            // collisions between the two players to count as a parry/block,
+            // even if the blocking player is moving *away* from their opponent.
+            if (p.isThrusting() && p.isOverlappingX(other) && p.getGuardPosition() == other.getGuardPosition()){
                 if (other.getY() == p.getY()){
                     p.hitHeadOn();
                 }
@@ -805,6 +823,13 @@ window.onload = function() {
                     other.parryUp();
                     p.forceUp();
                 }
+                else if (p.isThrusting() && p.getX() == p.getGoalX()){
+                    other.kill();
+                }
+            }
+            
+            else if (p.isThrusting() && p.getX() == p.getGoalX()){
+                other.kill();
             }
 
         }
